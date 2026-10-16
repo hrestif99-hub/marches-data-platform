@@ -1,0 +1,53 @@
+# Marchés Data Platform
+
+Projet de data engineering : collecter, stocker et transformer les cours de l'**or**, du **bitcoin**, du **pétrole** et du **dollar** (EUR/USD).
+
+## Objectif
+- Historique de l'or obtenu par **scraping** (chargement initial, une seule fois).
+- Données quotidiennes des autres actifs via des **APIs**.
+- Entrepôt dans **Snowflake**, transformations avec **dbt**, orchestration avec **Airflow**.
+
+## Architecture
+```
+Sources (scraping or + APIs)
+   → Cloud Functions (GCP) déclenchées par Cloud Scheduler
+   → Cloud Storage (GCS) : fichiers bruts
+   → Snowflake (stage externe + COPY INTO)
+       RAW      : données brutes, telles que reçues
+       STAGING  : nettoyées, typées, dédoublonnées (dbt)
+       MARTS    : tables prêtes pour l'analyse (dbt)
+   → Airflow orchestre GCS → Snowflake → dbt → tests
+CI/CD : GitHub Actions
+```
+
+## Structure du repo
+- `ingestion/` : scripts Python (scraper or, clients API), un sous-dossier par source
+- `dbt/` : projet dbt (modèles staging et marts, tests)
+- `airflow/dags/` : DAGs Airflow
+- `.github/workflows/` : CI/CD
+- `.claude/agents/` : sous-agents Claude Code
+
+## Stack
+Python 3.13, Snowflake, dbt, Airflow, GCP (GCS, Cloud Functions, Cloud Scheduler, IAM), GitHub Actions, Docker.
+
+## Conventions
+- Code et commentaires : noms en anglais, explications en français.
+- Noms de tables et colonnes en `snake_case`.
+- Chaque ligne en RAW porte : `source`, `ingested_at` (UTC).
+- Dates en UTC, prix avec leur devise explicite (`price_usd`, `price_eur`).
+- Fichiers bruts dans GCS : `gs://<bucket>/raw/<actif>/<source>/ingestion_date=YYYY-MM-DD/`.
+
+## Sécurité
+- Aucun secret dans le code ni dans Git : tout passe par `.env` (local) ou Secret Manager / secrets GitHub.
+- `.env.example` liste les variables nécessaires, sans valeurs.
+
+## Scraping
+- Respecter le `robots.txt` et les CGU du site.
+- Peu de requêtes, pauses entre chaque appel, user-agent explicite.
+- Usage limité au chargement historique de l'or.
+
+## Règles pour les agents
+- Petites modifications, une tâche à la fois.
+- Toujours expliquer ce qui a été fait et pourquoi, en quelques lignes.
+- Ne jamais lancer de commande qui supprime des données ou modifie Snowflake/GCP sans confirmation.
+- Ajouter des tests pour tout nouveau modèle dbt.
