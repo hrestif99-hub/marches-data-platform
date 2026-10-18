@@ -1,0 +1,93 @@
+version: 2
+
+models:
+  - name: stg_gold__boursorama
+    description: >-
+      Cours journalier de l'or (contrat _GC, USD par once troy) issu du scraping unique
+      de Boursorama. Champs JSON extraits et typés, une ligne par (source, symbol, quote_date) :
+      en cas de doublon, on garde la ligne la plus récemment collectée (ingested_at),
+      puis chargée (loaded_at), puis file_name et file_row_number les plus grands
+      (NULL toujours en dernier).
+      Les valeurs ne sont pas corrigées : les lignes incohérentes sont seulement signalées.
+      Règle des incohérences OHLC : une ligne est incohérente (is_ohlc_inconsistent) si elle
+      a un OHLC complet (has_full_ohlc) et au moins une de ces conditions : high < low
+      (is_high_below_low, la plus grave), open hors [low, high] (is_open_outside_range),
+      close hors [low, high] (is_close_outside_range). Une ligne peut cumuler plusieurs
+      conditions : le total est un nombre de lignes distinctes, pas la somme des trois.
+      Les lignes sans OHLC complet (valeur manquante, ou clôture seule recopiée dans
+      open/high/low sur l'historique ancien) ne sont jamais comptées comme incohérentes.
+      Chiffres datés du dernier chargement : voir ingestion/gold/README.md.
+    data_tests:
+      - unique_combination:
+          arguments:
+            combination_of_columns:
+              - source
+              - symbol
+              - quote_date
+    columns:
+      - name: source
+        description: "Source de la donnée (boursorama)."
+        data_tests:
+          - not_null
+      - name: symbol
+        description: "Symbole Boursorama de l'instrument (_GC)."
+        data_tests:
+          - not_null
+      - name: instrument_name
+        description: "Libellé de l'instrument chez Boursorama (Gold)."
+      - name: quote_date
+        description: "Date de la cotation (jour de bourse)."
+        data_tests:
+          - not_null
+      - name: open_usd
+        description: "Cours d'ouverture, USD par once troy (number(18,4))."
+      - name: high_usd
+        description: "Plus haut du jour, USD par once troy (number(18,4))."
+      - name: low_usd
+        description: "Plus bas du jour, USD par once troy (number(18,4))."
+      - name: price_usd
+        description: >-
+          Cours de clôture du jour (champ c de Boursorama), USD par once troy (number(18,4)).
+          Seule valeur attendue sur toutes les lignes, y compris l'historique ancien.
+        data_tests:
+          - not_null:
+              config:
+                severity: warn
+      - name: volume
+        description: "Volume échangé tel que publié par Boursorama ; souvent 0 sur l'historique ancien."
+      - name: currency
+        description: "Devise des prix (USD)."
+      - name: unit
+        description: "Unité de cotation (troy_ounce)."
+      - name: ingested_at
+        description: "Horodatage UTC de la collecte (timestamp_ntz), issu de raw_data:ingested_at."
+      - name: file_name
+        description: "Chemin du fichier JSONL source dans le stage GCS."
+      - name: loaded_at
+        description: "Horodatage UTC du chargement dans Snowflake (timestamp_ntz)."
+      - name: has_full_ohlc
+        description: >-
+          Vrai si open, high, low et close sont tous présents et ne forment pas une barre
+          « plate » (open = high = low = close). Faux pour les lignes clôture seule de
+          l'historique ancien, où Boursorama recopie la clôture dans open/high/low.
+          Jamais NULL.
+      - name: is_high_below_low
+        description: >-
+          Vrai si has_full_ohlc et high_usd < low_usd. Incohérence la plus grave : contrôlée
+          à part, en warn, par assert_stg_gold__boursorama_high_gte_low. Faux (jamais NULL)
+          quand l'OHLC n'est pas complet.
+      - name: is_open_outside_range
+        description: >-
+          Vrai si has_full_ohlc et open_usd n'est pas compris entre low_usd et high_usd.
+          Toujours vrai quand high_usd < low_usd. Faux (jamais NULL) quand l'OHLC n'est pas complet.
+      - name: is_close_outside_range
+        description: >-
+          Vrai si has_full_ohlc et price_usd n'est pas compris entre low_usd et high_usd.
+          Fréquent dans cette source, probablement parce que le plus haut et le plus bas ne
+          couvrent pas la même séance que la clôture. Toujours vrai quand high_usd < low_usd.
+          Faux (jamais NULL) quand l'OHLC n'est pas complet.
+      - name: is_ohlc_inconsistent
+        description: >-
+          Vrai si au moins une des trois incohérences est vraie : is_high_below_low,
+          is_open_outside_range ou is_close_outside_range. Jamais NULL.
+          Contrôlé en warn par assert_stg_gold__boursorama_ohlc_consistent.

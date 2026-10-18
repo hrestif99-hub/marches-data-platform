@@ -1,0 +1,4 @@
+# Artefacts dbt (jamais commités)
+target/
+dbt_packages/
+logs/

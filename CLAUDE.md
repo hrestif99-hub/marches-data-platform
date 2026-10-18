@@ -47,6 +47,17 @@ Python 3.13, Snowflake, dbt, Airflow, GCP (GCS, Cloud Functions, Cloud Scheduler
   contrairement à l'or, au pétrole et à l'EUR/USD (jours ouvrés seulement). En tenir compte
   pour les contrôles de trous de dates et pour les jointures entre actifs.
 
+## Décisions en attente
+- **Fraîcheur des sources dbt : collecte ou cotation ?** Les tests de fraîcheur
+  (`dbt/models/staging/_sources.yml`) mesurent `ingested_at`, la date de la **collecte**,
+  alors que leurs seuils sont calculés sur le rythme de **publication** des sources
+  (EIA hebdomadaire, jours ouvrés BCE, 7j/7 pour le bitcoin). C'est cohérent seulement si la
+  collecte quotidienne n'écrit rien quand il n'y a pas de nouvelle cotation. Si elle réécrit
+  une fenêtre glissante, `ingested_at` avance chaque jour et le test ne détecte plus qu'une
+  panne du pipeline, jamais une donnée périmée. À trancher quand la collecte quotidienne
+  sera planifiée (Cloud Scheduler) : soit « pas d'écriture sans nouveauté », soit un
+  contrôle de fraîcheur sur `quote_date` en plus.
+
 ## Sécurité
 - Aucun secret dans le code ni dans Git : tout passe par `.env` (local) ou Secret Manager / secrets GitHub.
 - `.env.example` liste les variables nécessaires, sans valeurs.

@@ -1,0 +1,33 @@
+# Modèle de profil dbt pour le projet Marchés. Aucun secret ici.
+#
+# Le vrai fichier vit HORS du repo : ~/.dbt/profiles.yml
+# (Windows : C:/Users/<utilisateur>/.dbt/profiles.yml). Copier ce bloc dedans.
+#
+# Authentification par paire de clés (JWT) : pas de mot de passe.
+#   - clé privée PKCS#8 non chiffrée, hors repo, lisible par l'utilisateur seul ;
+#   - clé publique déclarée côté Snowflake : ALTER USER "<user>" SET RSA_PUBLIC_KEY='...';
+#
+# Variable d'environnement attendue :
+#   SNOWFLAKE_ACCOUNT : identifiant du compte, format <orgname>-<account_name>
+#                       (SELECT CURRENT_ORGANIZATION_NAME() || '-' || CURRENT_ACCOUNT_NAME();)
+#
+# Vérification (se connecte à Snowflake) :
+#   dbt debug --project-dir dbt --profiles-dir ~/.dbt
+marches:
+  target: dev
+  outputs:
+    dev:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      # Auth par clé (JWT) : mettre le LOGIN_NAME (voir DESC USER), pas le NAME,
+      # sinon Snowflake répond « JWT token is invalid ».
+      user: <snowflake_login_name>
+      role: MARCHES_ROLE
+      warehouse: MARCHES_WH
+      database: MARCHES
+      # Schéma par défaut ; les modèles écrivent dans STAGING ou MARTS
+      # selon dbt_project.yml (voir macros/generate_schema_name.sql)
+      schema: STAGING
+      threads: 4
+      authenticator: snowflake_jwt
+      private_key_path: <chemin/absolu/vers/rsa_key.p8>

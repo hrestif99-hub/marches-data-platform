@@ -1,0 +1,23 @@
+# Projet dbt Marchés : RAW (chargé par COPY INTO) -> STAGING (vues) -> MARTS (tables)
+name: marches
+version: "1.0.0"
+profile: marches
+
+model-paths: ["models"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+
+clean-targets:
+  - target
+  - dbt_packages
+
+models:
+  marches:
+    # Nettoyage, typage, dédoublonnage : vues, recalculées à chaque lecture
+    staging:
+      +materialized: view
+      +schema: STAGING
+    # Modèles métier (fct_, dim_) : tables
+    marts:
+      +materialized: table
+      +schema: MARTS

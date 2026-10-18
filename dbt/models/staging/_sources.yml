@@ -1,0 +1,98 @@
+version: 2
+
+# Tables RAW chargées par COPY INTO depuis GCS (snowflake/04_raw_tables.sql, 05_raw_bitcoin.sql).
+# dbt les lit uniquement, il ne les modifie jamais.
+#
+# Fraîcheur : mesurée sur raw_data:ingested_at, c'est-à-dire la date de la COLLECTE
+# (heure UTC où le script d'ingestion a tourné), PAS la date de la dernière cotation
+# (quote_date). Une collecte récente peut donc contenir des cotations anciennes.
+#
+# ingested_at est une chaîne ISO 8601 UTC terminée par Z (ex. "2026-10-18T13:11:09Z",
+# produite par strftime("%Y-%m-%dT%H:%M:%SZ") dans chaque loader). Le format est donné
+# explicitement plutôt que de compter sur la détection automatique de ::timestamp_ntz :
+# "T" et "Z" sont des littéraux, l'heure est déjà en UTC, donc timestamp_ntz = UTC.
+# try_to_ renvoie NULL au lieu de faire échouer la requête si une valeur est mal formée.
+#
+# Les seuils supposent une collecte quotidienne planifiée (Cloud Scheduler), pas encore
+# en place : tant que seuls les chargements historiques existent, les contrôles de
+# fraîcheur de bitcoin, EUR/USD et pétrole seront en erreur. C'est attendu.
+#
+# Limite connue (cf. CLAUDE.md, « Décisions en attente ») : les seuils raisonnent sur le
+# rythme de publication des sources, mais ingested_at mesure la date de collecte. Ils n'ont
+# de sens que si la collecte quotidienne n'écrit rien quand il n'y a pas de nouvelle cotation.
+
+sources:
+  - name: raw
+    description: "Couche RAW : une ligne JSONL par cotation, stockée telle que reçue dans une colonne VARIANT."
+    database: MARCHES
+    schema: RAW
+    config:
+      loaded_at_field: >-
+        try_to_timestamp_ntz(raw_data:ingested_at::varchar, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+
+    tables:
+      - name: GOLD_BOURSORAMA
+        description: >-
+          Historique du cours de l'or (contrat _GC, USD par once troy), obtenu par scraping
+          unique de Boursorama. Une ligne par cotation journalière, non transformée.
+          Fichiers sources : raw/gold/boursorama/.
+        config:
+          # Collecte unique, jamais planifiée (cf. CLAUDE.md) : ingested_at ne bougera plus.
+          # Un seuil, même en warn, serait en alerte permanente et habituerait à ignorer
+          # les alertes. La fraîcheur est donc désactivée pour cette table.
+          freshness: null
+        columns: &raw_columns
+          - name: raw_data
+            description: "Ligne JSON d'origine (VARIANT), non transformée. Contient notamment source et ingested_at."
+          - name: file_name
+            description: "Chemin du fichier JSONL dans le stage GCS (METADATA$FILENAME)."
+          - name: file_row_number
+            description: "Numéro de la ligne dans le fichier source (METADATA$FILE_ROW_NUMBER)."
+          - name: ingestion_date
+            description: "Date de la partition ingestion_date=YYYY-MM-DD extraite du chemin du fichier."
+          - name: loaded_at
+            description: "Horodatage UTC (timestamp_ntz) du chargement dans Snowflake (DEFAULT SYSDATE())."
+
+      - name: OIL_EIA
+        description: >-
+          Prix spot du pétrole (séries WTI et Brent, USD par baril) issus de l'API EIA.
+          Une ligne par série et par cotation journalière, non transformée.
+          Fichiers sources : raw/oil/eia/.
+        config:
+          # Calendrier EIA : les prix spot journaliers sont publiés UNE FOIS PAR SEMAINE,
+          # avec les cotations jusqu'à la veille (constaté le 2026-10-18 : « Release Date:
+          # 10/15/2026 », « Next Release Date: 10/21/2026 », dernière cotation 10/14/2026).
+          # Source : https://www.eia.gov/dnav/pet/pet_pri_spt_s1_d.htm
+          # Écart normal entre deux publications : ~7 jours, décalé d'un ou deux jours par les
+          # jours fériés US. Warn après 9 jours (une publication manquée ou en retard),
+          # erreur après 14 jours (deux publications manquées).
+          freshness:
+            warn_after: {count: 9, period: day}
+            error_after: {count: 14, period: day}
+        columns: *raw_columns
+
+      - name: EURUSD_ECB
+        description: >-
+          Taux de change de référence EUR/USD publié par la BCE (USD pour 1 EUR).
+          Une ligne par jour ouvré TARGET, non transformée. Fichiers sources : raw/eurusd/ecb/.
+        config:
+          # La BCE ne publie que les jours ouvrés TARGET : week-end + jours fériés donnent
+          # jusqu'à 5 jours entre deux publications (Jeudi saint -> mardi de Pâques,
+          # 24 -> 29 décembre). Erreur à 6 jours pour ne pas alerter sur ces cas normaux.
+          freshness:
+            warn_after: {count: 3, period: day}
+            error_after: {count: 6, period: day}
+        columns: *raw_columns
+
+      - name: BITCOIN_BINANCE_VISION
+        description: >-
+          Bougies journalières BTCUSDT de Binance Vision (data.binance.vision). Prix en USDT,
+          pas en USD. Licence CC BY-NC-SA 4.0 : usage privé non commercial.
+          Fichiers sources : raw/bitcoin/binance_vision/.
+        config:
+          # Marché 7j/7, fichier journalier publié le lendemain : une collecte par jour
+          # attendue. Warn après 36 h (une collecte manquée), erreur après 72 h.
+          freshness:
+            warn_after: {count: 36, period: hour}
+            error_after: {count: 72, period: hour}
+        columns: *raw_columns

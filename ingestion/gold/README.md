@@ -34,6 +34,31 @@ chargement multiple, le dédoublonnage se fait en STAGING (dbt) sur
 Aucune correction OHLC ni comblement de trous ici : c'est le rôle de STAGING (dbt).
 Pas d'upload GCS dans ce script.
 
+## Qualité des données : 589 lignes OHLC incohérentes
+
+Sur les 5110 lignes collectées le 2026-10-18, **589 lignes** ont au moins une incohérence OHLC.
+Règle de calcul (définie dans la description du modèle dbt) : une ligne avec un OHLC complet
+est incohérente si au moins une de ces conditions est vraie (une même ligne peut en cumuler
+plusieurs : les 589 sont des lignes distinctes, d'où 1 + 63 + 529 = 593 ≠ 589) :
+
+| Condition | Lignes |
+|---|---|
+| `high_usd < low_usd` (la plus grave) | 1 |
+| `open_usd` hors de `[low_usd, high_usd]` | 63 |
+| `price_usd` (clôture) hors de `[low_usd, high_usd]` | 529 |
+| **Au moins une des trois** | **589** |
+
+Les 638 lignes du 2006-10-18 au 2009-04-06 n'ont que la clôture : Boursorama la recopie dans
+open/high/low (barre « plate »). Elles ont `has_full_ohlc = false` et ne sont pas comptées
+comme incohérentes.
+
+Ces lignes ne sont pas corrigées. Le modèle dbt `stg_gold__boursorama` les signale avec
+`is_high_below_low`, `is_open_outside_range`, `is_close_outside_range` et le drapeau global
+`is_ohlc_inconsistent`. Deux tests en `warn` les remontent :
+`assert_stg_gold__boursorama_high_gte_low` (1 ligne) et
+`assert_stg_gold__boursorama_ohlc_consistent` (589 lignes). Mettre ces chiffres à jour
+après chaque rechargement de l'historique.
+
 ## Garde-fous
 
 - Si `output/eod_7300.json` existe, **aucune requête réseau** n'est faite (visible dans les logs).

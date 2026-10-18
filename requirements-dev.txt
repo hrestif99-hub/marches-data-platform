@@ -1,2 +1,6 @@
 -r requirements.txt
 pytest==9.1.1
+# dbt : dbt-core est épinglé explicitement, car la contrainte de dbt-snowflake
+# (dbt-core>=1.10.0rc0) autorise pip à installer une version bêta.
+dbt-core==1.12.6
+dbt-snowflake==1.12.3
