@@ -7,3 +7,10 @@ dbt/logs/
 
 # Données brutes du scraping de l'or (jamais commitées)
 ingestion/gold/output/
+
+# Données brutes des API EUR/USD (BCE) et pétrole (EIA), jamais commitées
+ingestion/eurusd/output/
+ingestion/oil/output/
+
+# Fichiers bruts Binance Vision (BTCUSDT), jamais commités
+ingestion/bitcoin/output/
