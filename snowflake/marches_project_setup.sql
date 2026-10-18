@@ -26,3 +26,9 @@ USE ROLE MARCHES_ROLE;
 SHOW SCHEMAS IN DATABASE MARCHES;
 
 SELECT CURRENT_REGION();
+
+-- Fuseau horaire du compte en UTC (convention du projet : toutes les dates en UTC).
+-- ALTER ACCOUNT exige ACCOUNTADMIN : lancée avec MARCHES_ROLE (rôle actif juste au-dessus),
+-- la commande avait échoué faute de privilèges. D'où le USE ROLE ACCOUNTADMIN juste avant.
+USE ROLE ACCOUNTADMIN;
+ALTER ACCOUNT SET TIMEZONE = 'UTC';
