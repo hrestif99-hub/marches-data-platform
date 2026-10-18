@@ -34,7 +34,14 @@ models:
               arguments:
                 values: ['RBRTE', 'RWTC']
       - name: product
-        description: "Libellé court du produit, ajouté par le loader : brent ou wti."
+        description: >-
+          Libellé court du produit, ajouté par le loader : brent ou wti. Doit correspondre
+          à la série (RBRTE -> brent, RWTC -> wti) : contrôlé en error par
+          assert_stg_oil__eia_product_matches_series.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['brent', 'wti']
       - name: product_name
         description: "Nom du produit selon l'EIA (product-name)."
       - name: series_description

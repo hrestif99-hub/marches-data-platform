@@ -43,7 +43,17 @@ models:
       - name: unit
         description: "Unité du taux (USD_per_EUR)."
       - name: obs_status
-        description: "Statut d'observation SDMX de la BCE (A = valeur normale)."
+        description: >-
+          Statut d'observation SDMX de la BCE. A = valeur normale. Toute autre valeur
+          (par exemple provisoire ou estimée) n'est pas une erreur en soi mais doit être
+          examinée avant usage : contrôlé en warn par accepted_values (seule valeur
+          acceptée : A).
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['A']
+              config:
+                severity: warn
       - name: ingested_at
         description: "Horodatage UTC de la collecte (timestamp_ntz), issu de raw_data:ingested_at."
       - name: file_name
