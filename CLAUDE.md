@@ -42,9 +42,15 @@ Python 3.13, Snowflake, dbt, Airflow, GCP (GCS, Cloud Functions, Cloud Scheduler
 - `.env.example` liste les variables nécessaires, sans valeurs.
 
 ## Scraping
-- Respecter le `robots.txt` et les CGU du site.
-- Peu de requêtes, pauses entre chaque appel, user-agent explicite.
-- Usage limité au chargement historique de l'or.
+- Source retenue pour l'historique de l'or : **Boursorama**, à titre pédagogique.
+  Décision consciente du propriétaire du projet : les CGU de Boursorama (§2.1) interdisent
+  la récupération automatique et le `robots.txt` bloque `*/cours/historique/*`.
+- Garde-fous obligatoires :
+  - **Collecte unique** : un seul passage pour l'historique, jamais planifié ni relancé en boucle.
+  - **Pauses d'au moins 3 secondes** entre chaque requête, user-agent explicite, nombre de requêtes minimal.
+  - **Aucune donnée brute commitée dans Git** : la sortie locale va dans `ingestion/gold/output/` (ignoré par `.gitignore`).
+  - Données à usage privé uniquement, pas de rediffusion.
+- Pour toute autre source : respecter le `robots.txt` et les CGU du site.
 
 ## Règles pour les agents
 - Petites modifications, une tâche à la fois.

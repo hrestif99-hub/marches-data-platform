@@ -4,3 +4,6 @@ __pycache__/
 dbt/target/
 dbt/logs/
 *.log
+
+# Données brutes du scraping de l'or (jamais commitées)
+ingestion/gold/output/
