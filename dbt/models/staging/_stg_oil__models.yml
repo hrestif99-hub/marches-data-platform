@@ -1,0 +1,72 @@
+version: 2
+
+models:
+  - name: stg_oil__eia
+    description: >-
+      Prix spot journaliers du pétrole issus de l'API EIA, deux séries dans la même table :
+      Brent (RBRTE, Europe) et WTI (RWTC, Cushing, Oklahoma), en USD par baril.
+      Jours de cotation propres à chaque série (WTI : calendrier US ; Brent : calendrier
+      de Londres) : les deux séries n'ont pas forcément les mêmes dates.
+      Champs JSON extraits et typés, une ligne par (source, series, quote_date) :
+      en cas de doublon, on garde la ligne la plus récemment collectée (ingested_at),
+      puis chargée (loaded_at), puis file_name et file_row_number les plus grands
+      (NULL toujours en dernier).
+      Les valeurs ne sont pas corrigées : un prix nul ou négatif est gardé tel quel et
+      signalé par is_price_non_positive (prix <= 0). Un prix négatif n'est pas forcément
+      une erreur : le WTI a coté sous zéro en avril 2020.
+    data_tests:
+      - unique_combination:
+          arguments:
+            combination_of_columns:
+              - source
+              - series
+              - quote_date
+    columns:
+      - name: source
+        description: "Source de la donnée (eia)."
+        data_tests:
+          - not_null
+      - name: series
+        description: "Identifiant de série EIA (champ JSON series_id) : RBRTE (Brent) ou RWTC (WTI)."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['RBRTE', 'RWTC']
+      - name: product
+        description: "Libellé court du produit, ajouté par le loader : brent ou wti."
+      - name: product_name
+        description: "Nom du produit selon l'EIA (product-name)."
+      - name: series_description
+        description: "Description de la série selon l'EIA (series-description)."
+      - name: quote_date
+        description: "Date de la cotation spot (jour de cotation de la série : calendrier US pour le WTI, de Londres pour le Brent)."
+        data_tests:
+          - not_null
+      - name: price_usd_per_barrel
+        description: >-
+          Prix spot, USD par baril (number(18,4) ; la source publie 2 décimales au plus).
+          Peut être négatif (WTI, avril 2020) : contrôlé en warn par strictly_positive.
+        data_tests:
+          - not_null:
+              config:
+                severity: warn
+          - strictly_positive:
+              config:
+                severity: warn
+      - name: currency
+        description: "Devise du prix (USD)."
+      - name: unit
+        description: "Unité de cotation (barrel)."
+      - name: raw_units
+        description: "Unité telle que publiée par l'EIA ($/BBL)."
+      - name: ingested_at
+        description: "Horodatage UTC de la collecte (timestamp_ntz), issu de raw_data:ingested_at."
+      - name: file_name
+        description: "Chemin du fichier JSONL source dans le stage GCS."
+      - name: loaded_at
+        description: "Horodatage UTC du chargement dans Snowflake (timestamp_ntz)."
+      - name: is_price_non_positive
+        description: >-
+          Vrai si price_usd_per_barrel <= 0. Faux (jamais NULL) si le prix est positif ou
+          absent. Même condition que le test strictly_positive (warn) sur price_usd_per_barrel.
