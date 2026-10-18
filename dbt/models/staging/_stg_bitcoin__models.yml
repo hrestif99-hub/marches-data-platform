@@ -1,0 +1,111 @@
+version: 2
+
+models:
+  - name: stg_bitcoin__binance_vision
+    description: >-
+      Bougies journalières du bitcoin issues de Binance Vision (paire BTCUSDT).
+      Prix en USDT (stablecoin Tether), PAS en USD : aucune conversion n'est faite ;
+      ne pas comparer ni joindre directement avec des prix _usd sans le signaler.
+      Chaque bougie couvre la journée Binance de 00:00:00 à 23:59:59 UTC, alors que les
+      autres sources ont leur propre heure de référence (fixing BCE à Francfort, etc.).
+      Cotation 7j/7 : une ligne par jour calendaire, week-ends et jours fériés compris,
+      contrairement à l'or, au pétrole et à l'EUR/USD (jours ouvrés seulement).
+      quote_date est la date UTC d'ouverture de la bougie. Elle est calculée et contrôlée
+      par le loader (ingestion/bitcoin/load_history.py), pas par dbt : open_time n'est pas
+      en RAW. Le loader lit open_time (ms ou µs) dans le CSV Binance, refuse le fichier
+      si la bougie ne s'ouvre pas à minuit UTC, puis écrit quote_date.
+      Champs JSON extraits et typés, une ligne par (source, symbol, quote_date) :
+      en cas de doublon, on garde la ligne la plus récemment collectée (ingested_at),
+      puis chargée (loaded_at), puis file_name et file_row_number les plus grands
+      (NULL toujours en dernier).
+      Les valeurs ne sont pas corrigées : les lignes incohérentes sont seulement signalées.
+      Règle des incohérences OHLC (identique à l'or) : une ligne est incohérente
+      (is_ohlc_inconsistent) si elle a un OHLC complet (has_full_ohlc) et au moins une de
+      ces conditions : high < low (is_high_below_low, la plus grave), open hors [low, high]
+      (is_open_outside_range), close hors [low, high] (is_close_outside_range). Une ligne
+      peut cumuler plusieurs conditions : le total est un nombre de lignes distinctes, pas
+      la somme des trois. Les lignes sans OHLC complet ne sont jamais comptées comme
+      incohérentes. Le loader refuse déjà les OHLC incohérents : aucune ligne n'est
+      attendue, les tests restent en warn par cohérence avec l'or.
+    data_tests:
+      - unique_combination:
+          arguments:
+            combination_of_columns:
+              - source
+              - symbol
+              - quote_date
+    columns:
+      - name: source
+        description: "Source de la donnée (binance_vision)."
+        data_tests:
+          - not_null
+      - name: symbol
+        description: "Paire Binance (BTCUSDT) : bitcoin coté en USDT, pas en USD."
+        data_tests:
+          - not_null
+      - name: quote_date
+        description: >-
+          Date UTC d'ouverture de la bougie journalière, qui couvre 00:00:00 à 23:59:59 UTC.
+          Une ligne par jour calendaire (7j/7). Calculée et contrôlée par le loader (bougie
+          ouverte à minuit UTC, sinon fichier refusé), non vérifiable par dbt car open_time
+          n'est pas en RAW.
+        data_tests:
+          - not_null
+      - name: open_usdt
+        description: "Cours d'ouverture à 00:00 UTC, USDT par BTC (number(18,8)). USDT, pas USD."
+      - name: high_usdt
+        description: "Plus haut de la journée UTC, USDT par BTC (number(18,8)). USDT, pas USD."
+      - name: low_usdt
+        description: "Plus bas de la journée UTC, USDT par BTC (number(18,8)). USDT, pas USD."
+      - name: close_usdt
+        description: >-
+          Cours de clôture à 23:59:59 UTC, USDT par BTC (number(18,8)). USDT, pas USD :
+          aucune conversion implicite.
+        data_tests:
+          - not_null:
+              config:
+                severity: warn
+      - name: base_currency
+        description: "Actif de base de la paire (BTC)."
+      - name: quote_currency
+        description: "Devise de cotation de la paire (USDT, pas USD)."
+      - name: volume_btc
+        description: "Volume échangé sur la journée UTC, en BTC (number(20,8), 8 décimales = le satoshi)."
+      - name: quote_volume_usdt
+        description: >-
+          Volume échangé sur la journée UTC, exprimé en USDT (quote_asset_volume de Binance,
+          number(28,8)). USDT, pas USD.
+      - name: number_of_trades
+        description: "Nombre de transactions sur la journée UTC (entier)."
+      - name: raw_file
+        description: "Archive Binance Vision d'origine (zip mensuel ou journalier) dont provient la bougie."
+      - name: ingested_at
+        description: "Horodatage UTC de la collecte (timestamp_ntz), issu de raw_data:ingested_at."
+      - name: file_name
+        description: "Chemin du fichier JSONL source dans le stage GCS."
+      - name: loaded_at
+        description: "Horodatage UTC du chargement dans Snowflake (timestamp_ntz)."
+      - name: has_full_ohlc
+        description: >-
+          Vrai si open, high, low et close sont tous présents et ne forment pas une barre
+          « plate » (open = high = low = close). Même règle que l'or. Jamais NULL.
+      - name: is_high_below_low
+        description: >-
+          Vrai si has_full_ohlc et high_usdt < low_usdt. Incohérence la plus grave : contrôlée
+          à part, en warn, par assert_stg_bitcoin__binance_vision_high_gte_low. Faux (jamais
+          NULL) quand l'OHLC n'est pas complet.
+      - name: is_open_outside_range
+        description: >-
+          Vrai si has_full_ohlc et open_usdt n'est pas compris entre low_usdt et high_usdt.
+          Toujours vrai quand high_usdt < low_usdt. Faux (jamais NULL) quand l'OHLC n'est
+          pas complet.
+      - name: is_close_outside_range
+        description: >-
+          Vrai si has_full_ohlc et close_usdt n'est pas compris entre low_usdt et high_usdt.
+          Toujours vrai quand high_usdt < low_usdt. Faux (jamais NULL) quand l'OHLC n'est
+          pas complet.
+      - name: is_ohlc_inconsistent
+        description: >-
+          Vrai si au moins une des trois incohérences est vraie : is_high_below_low,
+          is_open_outside_range ou is_close_outside_range. Jamais NULL.
+          Contrôlé en warn par assert_stg_bitcoin__binance_vision_ohlc_consistent.

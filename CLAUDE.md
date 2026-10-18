@@ -57,6 +57,12 @@ Python 3.13, Snowflake, dbt, Airflow, GCP (GCS, Cloud Functions, Cloud Scheduler
   panne du pipeline, jamais une donnée périmée. À trancher quand la collecte quotidienne
   sera planifiée (Cloud Scheduler) : soit « pas d'écriture sans nouveauté », soit un
   contrôle de fraîcheur sur `quote_date` en plus.
+- **Bitcoin : écrire `open_time_utc` dans RAW.** Aujourd'hui le loader lit l'heure
+  d'ouverture des bougies Binance (`open_time`), vérifie qu'elle tombe à minuit UTC
+  (sinon `RawFormatError`), mais n'écrit que `quote_date`. `stg_bitcoin__binance_vision`
+  fait donc confiance au loader et dbt ne peut pas contrôler la date. La collecte
+  quotidienne du bitcoin devra écrire `open_time_utc` (ISO UTC) dans RAW, pour que dbt
+  dérive et vérifie `quote_date` lui-même.
 
 ## Sécurité
 - Aucun secret dans le code ni dans Git : tout passe par `.env` (local) ou Secret Manager / secrets GitHub.
