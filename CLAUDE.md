@@ -37,6 +37,16 @@ Python 3.13, Snowflake, dbt, Airflow, GCP (GCS, Cloud Functions, Cloud Scheduler
 - Dates en UTC, prix avec leur devise explicite (`price_usd`, `price_eur`).
 - Fichiers bruts dans GCS : `gs://<bucket>/raw/<actif>/<source>/ingestion_date=YYYY-MM-DD/`.
 
+## Qualité des données
+- **Bitcoin en USDT, pas en USD** : la source (Binance Vision, paire BTCUSDT) cote en USDT.
+  Colonnes suffixées `_usdt`, aucune conversion implicite en USD ; ne pas comparer ni
+  joindre directement avec des prix `_usd` sans le signaler.
+- **Journée Binance clôturée à minuit UTC** : chaque bougie journalière couvre 00:00–23:59:59 UTC,
+  alors que les autres sources ont leur propre heure de référence (fixing BCE à Francfort, etc.).
+- **Bitcoin cote 7j/7** : il a une ligne par jour calendaire, week-ends et jours fériés compris,
+  contrairement à l'or, au pétrole et à l'EUR/USD (jours ouvrés seulement). En tenir compte
+  pour les contrôles de trous de dates et pour les jointures entre actifs.
+
 ## Sécurité
 - Aucun secret dans le code ni dans Git : tout passe par `.env` (local) ou Secret Manager / secrets GitHub.
 - `.env.example` liste les variables nécessaires, sans valeurs.
