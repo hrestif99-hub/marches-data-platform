@@ -1,0 +1,52 @@
+version: 2
+
+models:
+  - name: stg_eurusd__ecb
+    description: >-
+      Taux de change de référence EUR/USD publié par la BCE (série EXR.D.USD.EUR.SP00.A) :
+      nombre de dollars US pour 1 euro, établi par la BCE à Francfort (heure de référence
+      propre à la BCE, différente de la journée UTC de Binance).
+      Une ligne par jour ouvré TARGET : pas de week-end ni de jour férié TARGET.
+      Champs JSON extraits et typés, une ligne par (source, quote_date) : en cas de doublon,
+      on garde la ligne la plus récemment collectée (ingested_at), puis chargée (loaded_at),
+      puis file_name et file_row_number les plus grands (NULL toujours en dernier).
+      Les valeurs ne sont pas corrigées.
+    data_tests:
+      - unique_combination:
+          arguments:
+            combination_of_columns:
+              - source
+              - quote_date
+    columns:
+      - name: source
+        description: "Source de la donnée (ecb)."
+        data_tests:
+          - not_null
+      - name: series_key
+        description: "Clé SDMX de la série BCE (EXR.D.USD.EUR.SP00.A)."
+      - name: quote_date
+        description: "Date du fixing BCE (jour ouvré TARGET)."
+        data_tests:
+          - not_null
+      - name: usd_per_eur
+        description: >-
+          Taux de référence BCE : dollars US pour 1 euro (number(10,4) ; la BCE publie
+          4 décimales au plus). Un taux de change <= 0 est impossible : contrôlé en error
+          par strictly_positive.
+        data_tests:
+          - not_null
+          - strictly_positive
+      - name: base_currency
+        description: "Devise de base (EUR)."
+      - name: quote_currency
+        description: "Devise de cotation (USD)."
+      - name: unit
+        description: "Unité du taux (USD_per_EUR)."
+      - name: obs_status
+        description: "Statut d'observation SDMX de la BCE (A = valeur normale)."
+      - name: ingested_at
+        description: "Horodatage UTC de la collecte (timestamp_ntz), issu de raw_data:ingested_at."
+      - name: file_name
+        description: "Chemin du fichier JSONL source dans le stage GCS."
+      - name: loaded_at
+        description: "Horodatage UTC du chargement dans Snowflake (timestamp_ntz)."
