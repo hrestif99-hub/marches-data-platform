@@ -1,0 +1,123 @@
+version: 2
+
+models:
+  - name: mart_prices_daily
+    description: >-
+      Prix journaliers de l'or, du pétrole (Brent et WTI), du bitcoin et de l'EUR/USD côte
+      à côte : une ligne par jour de dim_date (jour calendaire, week-ends compris), jointure
+      gauche sur chaque staging. Rien n'est filtré ni exclu : un actif qui ne cote pas ce
+      jour-là a ses colonnes à NULL.
+
+      Heures de clôture différentes selon l'actif : une même date_day ne correspond PAS au
+      même instant d'un actif à l'autre.
+      - Bitcoin : bougie Binance 00:00:00–23:59:59 UTC, 7j/7.
+      - EUR/USD : taux de référence BCE, fixé vers 14:15 heure de Francfort, jours ouvrés
+        TARGET seulement.
+      - Or (Boursorama, contrat _GC) : clôture de la séance du contrat, heure selon la source.
+      - WTI : prix spot de clôture à Cushing (Oklahoma), aux horaires des marchés US, selon
+        l'EIA.
+      - Brent : prix spot selon le calendrier de Londres, heure de référence selon l'EIA.
+      Comparer deux actifs à la même date_day revient donc à comparer des instants décalés
+      de plusieurs heures.
+
+      Devises : le bitcoin est en USDT (btc_close_usdt), PAS en USD ; il ne doit être ni
+      comparé ni additionné à des prix _usd sans conversion explicite.
+
+      Sémantique NULL des drapeaux de qualité (gold_is_ohlc_inconsistent, gold_has_full_ohlc,
+      wti_is_price_non_positive) : NULL = l'actif n'a pas de ligne ce jour-là (pas de
+      cotation), false = cotation présente sans anomalie, true = anomalie signalée. Un
+      NULL ne doit donc pas être lu comme « pas d'anomalie ». Les drapeaux de présence
+      (has_*) et is_common_trading_day ne sont jamais NULL.
+
+      Pas de doublon : chaque staging est unique par date (le pétrole par série et par date,
+      donc filtré sur la série avant la jointure). Contrôlé par unique sur date_day et par
+      assert_mart_prices_daily_row_count_matches_dim_date. Les cotations hors de dim_date
+      (ex. date future), qui seraient perdues par la jointure gauche, sont signalées en warn
+      par assert_mart_prices_daily_no_quote_outside_dim_date.
+    columns:
+      - name: date_day
+        description: >-
+          Jour calendaire (clé), issu de dim_date. Correspond à la quote_date de chaque
+          staging, c'est-à-dire à la journée de cotation propre à chaque source, pas à un
+          instant commun.
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_day
+      - name: gold_price_usd
+        description: >-
+          Or : cours de clôture, USD par once troy (price_usd de stg_gold__boursorama,
+          contrat _GC). Clôture de la séance du contrat, heure selon la source (Boursorama) :
+          pas le même instant que les autres actifs de la même date_day. NULL si pas de
+          cotation ce jour-là.
+      - name: brent_usd_per_barrel
+        description: >-
+          Brent : prix spot, USD par baril (série EIA RBRTE). Jours et heure de référence
+          selon le calendrier de Londres, selon l'EIA : pas le même instant que les autres
+          actifs de la même date_day. NULL si pas de cotation ce jour-là.
+      - name: wti_usd_per_barrel
+        description: >-
+          WTI : prix spot de clôture à Cushing (Oklahoma), USD par baril (série EIA RWTC),
+          aux horaires des marchés US, selon l'EIA : pas le même instant que les autres
+          actifs de la même date_day. Peut être négatif (avril 2020). NULL si pas de
+          cotation ce jour-là.
+      - name: btc_close_usdt
+        description: >-
+          Bitcoin : cours de clôture de la bougie Binance BTCUSDT, qui couvre 00:00:00 à
+          23:59:59 UTC, 7j/7. En USDT, PAS en USD : ne pas le comparer ni l'additionner à
+          des prix _usd sans conversion explicite. Pas le même instant que les autres
+          actifs de la même date_day. NULL si pas de bougie ce jour-là.
+      - name: usd_per_eur
+        description: >-
+          EUR/USD : taux de référence BCE, dollars US pour 1 euro, fixé vers 14:15 heure
+          de Francfort, jours ouvrés TARGET seulement : pas le même instant que les autres
+          actifs de la même date_day. NULL si pas de fixing ce jour-là.
+      - name: gold_is_ohlc_inconsistent
+        description: >-
+          is_ohlc_inconsistent de stg_gold__boursorama : vrai si l'OHLC de l'or est complet
+          et incohérent (high < low, ou open ou close hors [low, high]). NULL si pas de
+          cotation d'or ce jour-là, false si cotation présente sans incohérence.
+      - name: gold_has_full_ohlc
+        description: >-
+          has_full_ohlc de stg_gold__boursorama : vrai si open, high, low et close sont
+          présents et ne forment pas une barre « plate » (clôture seule recopiée). NULL si
+          pas de cotation d'or ce jour-là.
+      - name: wti_is_price_non_positive
+        description: >-
+          is_price_non_positive de stg_oil__eia (série RWTC) : vrai si le prix WTI est
+          <= 0. NULL si pas de cotation WTI ce jour-là, false si cotation présente et
+          prix positif (ou prix absent sur une ligne présente).
+      - name: has_gold
+        description: "Vrai si stg_gold__boursorama a une ligne pour cette date. Jamais NULL."
+        data_tests:
+          - not_null
+      - name: has_brent
+        description: "Vrai si stg_oil__eia a une ligne RBRTE (Brent) pour cette date. Jamais NULL."
+        data_tests:
+          - not_null
+      - name: has_wti
+        description: "Vrai si stg_oil__eia a une ligne RWTC (WTI) pour cette date. Jamais NULL."
+        data_tests:
+          - not_null
+      - name: has_btc
+        description: "Vrai si stg_bitcoin__binance_vision a une bougie pour cette date. Jamais NULL."
+        data_tests:
+          - not_null
+      - name: has_eurusd
+        description: "Vrai si stg_eurusd__ecb a un fixing pour cette date. Jamais NULL."
+        data_tests:
+          - not_null
+      - name: is_common_trading_day
+        description: >-
+          Vrai si les quatre actifs ont un prix ce jour-là, le Brent représentant le pétrole :
+          gold_price_usd, brent_usd_per_barrel, btc_close_usdt et usd_per_eur tous non NULL.
+          Le WTI n'entre pas dans la condition. Le bitcoin cotant 7j/7, ce sont en pratique
+          l'or, le Brent et la BCE (jours ouvrés, fériés propres à chaque marché) qui le
+          limitent, et seulement à partir du début de la série BTCUSDT de Binance
+          (2017-08-17). Même vrai, les prix d'une ligne ne sont pas simultanés (voir la
+          description du modèle). Jamais NULL.
+        data_tests:
+          - not_null

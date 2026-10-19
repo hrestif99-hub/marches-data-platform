@@ -1,0 +1,49 @@
+version: 2
+
+models:
+  - name: dim_date
+    description: >-
+      Dimension calendrier : une ligne par jour calendaire, sans trou, de la première
+      cotation disponible jusqu'à aujourd'hui en UTC.
+      La première date est calculée (plus petite quote_date des quatre stagings : or,
+      pétrole, bitcoin, EUR/USD), jamais codée en dur. La dernière date est la date UTC du
+      moment du build (convert_timezone('UTC', current_timestamp())::date) : la table
+      s'allonge donc à chaque build, d'un jour par jour écoulé, même sans nouvelle cotation.
+      Elle peut aussi commencer plus tôt si une source plus ancienne est chargée.
+      Jours générés par generator + row_number() (sans trou, contrairement à seq4() seul).
+      Attributs ISO 8601 (semaine commençant le lundi) calculés avec dayofweekiso, weekiso
+      et yearofweekiso, indépendants des paramètres de session WEEK_START et
+      WEEK_OF_YEAR_POLICY. Noms de jours et de mois en anglais.
+    columns:
+      - name: date_day
+        description: "Jour calendaire (date), clé de la dimension. Une ligne par jour, week-ends compris."
+        data_tests:
+          - unique
+          - not_null
+      - name: year
+        description: "Année civile de date_day."
+      - name: quarter
+        description: "Trimestre civil (1 à 4)."
+      - name: month
+        description: "Mois (1 = janvier ... 12 = décembre)."
+      - name: month_name
+        description: "Nom complet du mois en anglais (January ... December)."
+      - name: day_of_month
+        description: "Jour du mois (1 à 31)."
+      - name: day_of_week
+        description: >-
+          Jour de la semaine ISO : 1 = lundi ... 7 = dimanche (dayofweekiso, indépendant
+          du paramètre WEEK_START).
+      - name: day_name
+        description: "Nom complet du jour en anglais (Monday ... Sunday), cohérent avec day_of_week."
+      - name: is_weekend
+        description: >-
+          Vrai le samedi et le dimanche (day_of_week 6 ou 7). Ne tient pas compte des jours
+          fériés, qui diffèrent selon les marchés. Jamais NULL.
+      - name: iso_week
+        description: >-
+          Numéro de semaine ISO 8601 (1 à 53). À combiner avec iso_year, pas avec year :
+          les premiers jours de janvier peuvent appartenir à la dernière semaine de l'année
+          précédente.
+      - name: iso_year
+        description: "Année ISO 8601 à laquelle appartient iso_week (peut différer de year autour du 1er janvier)."
