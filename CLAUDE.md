@@ -60,9 +60,14 @@ Python 3.13, Snowflake, dbt, Airflow, GCP (GCS, Cloud Functions, Cloud Scheduler
 - **Bitcoin : écrire `open_time_utc` dans RAW.** Aujourd'hui le loader lit l'heure
   d'ouverture des bougies Binance (`open_time`), vérifie qu'elle tombe à minuit UTC
   (sinon `RawFormatError`), mais n'écrit que `quote_date`. `stg_bitcoin__binance_vision`
-  fait donc confiance au loader et dbt ne peut pas contrôler la date. La collecte
-  quotidienne du bitcoin devra écrire `open_time_utc` (ISO UTC) dans RAW, pour que dbt
-  dérive et vérifie `quote_date` lui-même.
+  fait donc confiance au loader et dbt ne peut pas contrôler la date. Décision : le loader
+  d'historique **et** la collecte quotidienne écriront `open_time_utc` (ISO UTC) dans RAW,
+  pour que dbt dérive et vérifie `quote_date` lui-même. L'historique sera rechargé dans RAW
+  à ce moment-là (nouveau fichier GCS + COPY INTO, avec confirmation).
+- **Bitcoin : pas de float avant RAW.** Le loader convertit aujourd'hui prix et volumes en
+  `float` Python, ce qui arrondit déjà les dernières décimales (notamment `quote_volume_usdt`).
+  Décision : à la même occasion, les valeurs resteront en texte (chaîne du CSV Binance) ou en
+  `Decimal` jusqu'à RAW, sans passer par un float ; le typage exact se fait en dbt.
 
 ## Sécurité
 - Aucun secret dans le code ni dans Git : tout passe par `.env` (local) ou Secret Manager / secrets GitHub.

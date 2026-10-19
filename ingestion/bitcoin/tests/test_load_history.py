@@ -164,6 +164,17 @@ def test_real_binance_lines_ms_and_us():
     assert lh.parse_csv(us, monthly("2025-01"), "x")[0]["quote_date"] == "2025-01-01"
 
 
+@pytest.mark.parametrize("unit_name", ["ms", "us"])
+@pytest.mark.parametrize("offset_s", [1, 3600, 86399])
+def test_open_time_not_midnight_utc_raises(unit_name, offset_s):
+    # quote_date n'est fiable que si la bougie s'ouvre à minuit UTC : sinon exception, pas un log.
+    line = csv_line(date(2025, 1, 2), unit=unit_name).split(",")
+    mult = 1_000_000 if unit_name == "us" else 1_000
+    line[0] = str(int(line[0]) + offset_s * mult)
+    with pytest.raises(lh.RawFormatError, match="n'est pas minuit UTC"):
+        lh.parse_csv(",".join(line), monthly("2025-01"), "x")
+
+
 def test_timestamp_wrong_unit_detected_by_period_check():
     # Un timestamp µs lu comme ms donnerait une date absurde : l'appartenance au mois l'attrape.
     with pytest.raises(lh.RawFormatError, match="hors de la période"):

@@ -68,7 +68,13 @@ models:
       - name: base_currency
         description: "Actif de base de la paire (BTC)."
       - name: quote_currency
-        description: "Devise de cotation de la paire (USDT, pas USD)."
+        description: >-
+          Devise de cotation de la paire (USDT, pas USD). Contrôlé par accepted_values :
+          une autre valeur casserait l'hypothèse « prix en USDT » des colonnes *_usdt.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['USDT']
       - name: volume_btc
         description: "Volume échangé sur la journée UTC, en BTC (number(20,8), 8 décimales = le satoshi)."
       - name: quote_volume_usdt

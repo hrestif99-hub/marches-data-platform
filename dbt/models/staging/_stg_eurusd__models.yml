@@ -47,8 +47,12 @@ models:
           Statut d'observation SDMX de la BCE. A = valeur normale. Toute autre valeur
           (par exemple provisoire ou estimée) n'est pas une erreur en soi mais doit être
           examinée avant usage : contrôlé en warn par accepted_values (seule valeur
-          acceptée : A).
+          acceptée : A). accepted_values ignore les NULL : un statut absent est contrôlé
+          à part par not_null, en warn lui aussi.
         data_tests:
+          - not_null:
+              config:
+                severity: warn
           - accepted_values:
               arguments:
                 values: ['A']
