@@ -1,0 +1,75 @@
+version: 2
+
+models:
+  - name: int_prices_daily
+    description: >-
+      Modèle intermédiaire : prix journaliers de l'or, du pétrole (Brent et WTI), du
+      bitcoin et de l'EUR/USD côte à côte, une ligne par jour de dim_date (week-ends
+      compris), jointure gauche sur chaque staging. Rien n'est filtré ni exclu : un actif
+      qui ne cote pas ce jour-là a ses colonnes à NULL.
+
+      Existe pour casser une dépendance circulaire : dim_events en dérive les bornes
+      d'historique et first_trading_date, et mart_prices_daily y ajoute les événements de
+      dim_events. Sans lui, mart_prices_daily et dim_events se liraient mutuellement.
+
+      Matérialisé en vue dans le schéma STAGING (pas en ephemeral) : interrogeable
+      directement pour déboguer, testable à son propre niveau, sans stockage ni nouveau
+      schéma Snowflake. Ce n'est pas un modèle de staging (il combine plusieurs sources) :
+      à consommer via les marts, pas directement par l'analyse.
+
+      Mêmes colonnes et même sémantique que les colonnes de prix de mart_prices_daily
+      (voir sa documentation) : heures de clôture différentes selon l'actif, bitcoin en
+      USDT et non en USD, drapeaux de qualité à NULL quand l'actif n'a pas de ligne ce
+      jour-là, has_* et is_common_trading_day jamais NULL.
+    columns:
+      - name: date_day
+        description: "Jour calendaire (clé), issu de dim_date."
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_day
+      - name: gold_price_usd
+        description: "Or : cours de clôture, USD par once troy (stg_gold__boursorama). NULL si pas de cotation."
+      - name: brent_usd_per_barrel
+        description: "Brent : prix spot, USD par baril (série EIA RBRTE). NULL si pas de cotation."
+      - name: wti_usd_per_barrel
+        description: "WTI : prix spot, USD par baril (série EIA RWTC). NULL si pas de cotation."
+      - name: btc_close_usdt
+        description: "Bitcoin : clôture de la bougie Binance BTCUSDT (UTC), en USDT, PAS en USD. NULL si pas de bougie."
+      - name: usd_per_eur
+        description: "EUR/USD : taux de référence BCE, dollars US pour 1 euro. NULL si pas de fixing."
+      - name: gold_is_ohlc_inconsistent
+        description: "is_ohlc_inconsistent de stg_gold__boursorama ; NULL si pas de cotation d'or ce jour-là."
+      - name: gold_has_full_ohlc
+        description: "has_full_ohlc de stg_gold__boursorama ; NULL si pas de cotation d'or ce jour-là."
+      - name: wti_is_price_non_positive
+        description: "is_price_non_positive de stg_oil__eia (RWTC) ; NULL si pas de cotation WTI ce jour-là."
+      - name: has_gold
+        description: "Vrai si stg_gold__boursorama a une ligne pour cette date. Jamais NULL."
+        data_tests:
+          - not_null
+      - name: has_brent
+        description: "Vrai si stg_oil__eia a une ligne RBRTE (Brent) pour cette date. Jamais NULL."
+        data_tests:
+          - not_null
+      - name: has_wti
+        description: "Vrai si stg_oil__eia a une ligne RWTC (WTI) pour cette date. Jamais NULL."
+        data_tests:
+          - not_null
+      - name: has_btc
+        description: "Vrai si stg_bitcoin__binance_vision a une bougie pour cette date. Jamais NULL."
+        data_tests:
+          - not_null
+      - name: has_eurusd
+        description: "Vrai si stg_eurusd__ecb a un fixing pour cette date. Jamais NULL."
+        data_tests:
+          - not_null
+      - name: is_common_trading_day
+        description: >-
+          Vrai si gold_price_usd, brent_usd_per_barrel, btc_close_usdt et usd_per_eur sont
+          tous non NULL (le Brent représente le pétrole, le WTI n'entre pas). Jamais NULL.
+        data_tests:
+          - not_null

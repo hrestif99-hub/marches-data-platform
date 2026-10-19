@@ -3,9 +3,10 @@
 -- l'événement) et de
 -- first_trading_date (premier jour, à partir de la date de l'événement, où tous ces
 -- actifs ont coté).
--- Les bornes d'historique sont calculées depuis mart_prices_daily, jamais codées en dur :
+-- Les bornes d'historique sont calculées depuis int_prices_daily (et non depuis
+-- mart_prices_daily, qui lit dim_events : cela formerait un cycle), jamais codées en dur :
 -- ce sont les mêmes drapeaux has_* qui servent ensuite à trouver le premier jour commun.
--- Le pétrole est représenté par le Brent, comme pour is_common_trading_day du mart.
+-- Le pétrole est représenté par le Brent, comme pour is_common_trading_day.
 -- ATTENTION : l'or, le Brent et la BCE suivent des calendriers différents (marchés US,
 -- Londres, TARGET) ; le premier jour commun est donc le premier jour ouvré de TOUS ces
 -- calendriers à la fois, pas seulement le premier jour hors week-end.
@@ -33,7 +34,7 @@ prices as (
         has_brent,
         has_btc,
         has_eurusd
-    from {{ ref('mart_prices_daily') }}
+    from {{ ref('int_prices_daily') }}
 
 ),
 

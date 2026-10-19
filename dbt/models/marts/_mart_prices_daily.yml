@@ -34,6 +34,20 @@ models:
       assert_mart_prices_daily_row_count_matches_dim_date. Les cotations hors de dim_date
       (ex. date future), qui seraient perdues par la jointure gauche, sont signalées en warn
       par assert_mart_prices_daily_no_quote_outside_dim_date.
+
+      Construction : les colonnes de prix, de drapeaux et has_* viennent telles quelles
+      de int_prices_daily ; le mart y ajoute en jointure gauche les événements de
+      dim_events (event_name, event_category, event_count). dim_events lit
+      int_prices_daily et non ce mart, ce qui évite une dépendance circulaire.
+
+      Événements : un événement est rattaché à sa first_trading_date (premier jour où
+      tous ses actifs disponibles ont coté, voir dim_events), PAS forcément à sa date
+      calendaire event_date. Un événement d'un samedi apparaît donc sur la ligne du lundi
+      suivant (ou plus tard si un marché est fermé). Pour garder une ligne par date, les
+      événements sont agrégés par first_trading_date avant la jointure : si plusieurs
+      tombent le même jour, leurs libellés sont concaténés avec ' | ', dans l'ordre
+      (event_date, event_id), et event_count les compte. Aucun événement n'est perdu :
+      contrôlé par assert_mart_prices_daily_all_events_attached.
     columns:
       - name: date_day
         description: >-
@@ -119,5 +133,28 @@ models:
           limitent, et seulement à partir du début de la série BTCUSDT de Binance
           (2017-08-17). Même vrai, les prix d'une ligne ne sont pas simultanés (voir la
           description du modèle). Jamais NULL.
+        data_tests:
+          - not_null
+      - name: event_name
+        description: >-
+          Libellé (event_name de dim_events) des événements dont la first_trading_date est
+          cette date_day : rattachement au premier jour de cotation commun, pas forcément
+          à la date calendaire de l'événement. Plusieurs événements le même jour : libellés
+          séparés par ' | ', un par événement (pas de dédoublonnage, autant de libellés
+          que event_count), dans l'ordre (event_date, event_id). NULL les jours sans
+          événement.
+      - name: event_category
+        description: >-
+          Catégorie (category de dim_events) des événements rattachés à cette date_day,
+          même règle de rattachement que event_name. Plusieurs événements le même jour :
+          catégories distinctes séparées par ' | ', dans l'ordre de leur premier événement
+          (event_date, event_id) ; le dédoublonnage est fait avant listagg, car Snowflake
+          refuse listagg(distinct ...) trié sur une autre colonne. Peut donc contenir moins
+          d'éléments que event_count. NULL les jours sans événement.
+      - name: event_count
+        description: >-
+          Nombre d'événements de dim_events dont la first_trading_date est cette date_day.
+          0 les jours sans événement, jamais NULL. sum(event_count) = nombre de lignes de
+          dim_events (assert_mart_prices_daily_all_events_attached).
         data_tests:
           - not_null

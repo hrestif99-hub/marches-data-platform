@@ -8,11 +8,11 @@ models:
       jour de bourse commun à ces actifs.
 
       Le début et la fin d'historique de chaque actif sont calculés depuis
-      mart_prices_daily (première et dernière date_day où has_gold, has_brent, has_eurusd
+      int_prices_daily (première et dernière date_day où has_gold, has_brent, has_eurusd
       ou has_btc est vrai), jamais codés en dur : ils bougent si une source est rechargée
       ou complétée. La fin compte autant que le début : l'or vient d'un scraping unique et
       sa série s'arrête ; un événement postérieur à la fin d'une série ne l'exige plus. Le pétrole est
-      représenté par le Brent, comme pour is_common_trading_day de mart_prices_daily.
+      représenté par le Brent, comme pour is_common_trading_day de int_prices_daily.
 
       Calendriers différents : l'or (contrat _GC, marchés US), le Brent (calendrier de
       Londres, selon l'EIA) et l'EUR/USD (jours ouvrés TARGET de la BCE) n'ont pas les
@@ -55,7 +55,7 @@ models:
         description: >-
           Actifs dont l'historique couvre la date de l'événement (début ET fin), c'est-à-dire
           tels que première cotation <= event_date <= dernière cotation dans
-          mart_prices_daily (gold : has_gold, oil : has_brent, eurusd : has_eurusd, btc :
+          int_prices_daily (gold : has_gold, oil : has_brent, eurusd : has_eurusd, btc :
           has_btc). Un actif dont la série commence après l'événement, ou s'arrête avant,
           n'est pas listé. Ce n'est PAS la liste des actifs qui ont coté le jour même.
           Chaîne séparée par des virgules, sans espace, toujours dans l'ordre fixe
@@ -65,7 +65,7 @@ models:
           comparable par égalité ; un ARRAY s'obtient au besoin par split(available_assets, ',').
       - name: first_trading_date
         description: >-
-          Premier date_day >= event_date de mart_prices_daily où TOUS les actifs de
+          Premier date_day >= event_date de int_prices_daily où TOUS les actifs de
           available_assets ont coté ce jour-là (has_gold, has_brent, has_eurusd, has_btc
           selon le cas) ; les actifs absents de available_assets ne sont pas exigés.
           Égale à event_date si tous les marchés concernés étaient ouverts ce jour-là.

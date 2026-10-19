@@ -17,6 +17,13 @@ models:
     staging:
       +materialized: view
       +schema: STAGING
+    # Briques réutilisées par plusieurs marts (int_) : vues dans STAGING.
+    # Vue plutôt qu'ephemeral : interrogeable directement pour déboguer et testable
+    # (unique, not_null) à son propre niveau ; aucun stockage, et pas de nouveau schéma
+    # Snowflake à créer ni à administrer pour quelques modèles.
+    intermediate:
+      +materialized: view
+      +schema: STAGING
     # Modèles métier (fct_, dim_) : tables
     marts:
       +materialized: table
