@@ -1,0 +1,49 @@
+version: 2
+
+seeds:
+  - name: geopolitical_events
+    description: >-
+      Référentiel des événements géopolitiques et économiques étudiés, une ligne par
+      événement, maintenu à la main dans le dépôt (dbt seed). Les dates ont été vérifiées
+      et ne sont pas recalculées. Sert de base à dim_events, qui y ajoute les actifs
+      disponibles et le premier jour de bourse commun.
+      Chargé dans MARTS (pas de schéma dédié) : c'est une donnée de référence exposée
+      telle quelle à l'analyse, à côté des dimensions qui l'utilisent ; un schéma SEEDS
+      obligerait dbt à créer un nouveau schéma Snowflake et à y gérer des droits, pour
+      une seule petite table.
+    config:
+      schema: MARTS
+      # identifiants de colonnes non cités : colonnes en majuscules dans Snowflake,
+      # comme les modèles (les valeurs, elles, sont citées en CSV standard par des
+      # guillemets doubles, ce qui protège virgules et apostrophes)
+      quote_columns: false
+      column_types:
+        event_id: varchar
+        event_name: varchar
+        event_date: date
+        category: varchar
+        description: varchar
+        source_url: varchar
+    columns:
+      - name: event_id
+        description: "Identifiant court et stable de l'événement, en snake_case (ex. lehman_bankruptcy). Clé du seed."
+        data_tests:
+          - unique
+          - not_null
+      - name: event_name
+        description: "Libellé court de l'événement, en français."
+      - name: event_date
+        description: "Date de l'événement (ISO YYYY-MM-DD, type date), vérifiée à la source. Jour calendaire, peut tomber un week-end."
+        data_tests:
+          - not_null
+      - name: category
+        description: "Catégorie de l'événement : guerre, crise financière, élection, choc pétrolier ou crise sanitaire."
+        data_tests:
+          # accepted_values (sur dim_events) ignore les NULL : ce test les signale
+          - not_null
+      - name: description
+        description: "Une phrase courte, factuelle et neutre, en français, qui décrit l'événement."
+      - name: source_url
+        description: "URL de la source qui atteste l'événement et sa date."
+        data_tests:
+          - not_null

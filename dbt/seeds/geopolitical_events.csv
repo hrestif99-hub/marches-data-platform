@@ -1,0 +1,12 @@
+event_id,event_name,event_date,category,description,source_url
+lehman_bankruptcy,"Faillite de Lehman Brothers",2008-09-15,"crise financière","La banque d'investissement américaine Lehman Brothers se place sous la protection du chapitre 11 de la loi sur les faillites.",https://en.wikipedia.org/wiki/Bankruptcy_of_Lehman_Brothers
+libya_intervention,"Intervention en Libye (printemps arabe)",2011-03-19,"guerre","Début de l'intervention militaire internationale en Libye, autorisée par la résolution 1973 du Conseil de sécurité de l'ONU.",https://en.wikipedia.org/wiki/2011_military_intervention_in_Libya
+crimea_annexation,"Annexion de la Crimée",2014-03-18,"guerre","La Russie signe le traité d'annexion de la Crimée.",https://www.pbs.org/newshour/world/putin-signs-treaty-annex-crimea-russia
+brexit_referendum,"Référendum du Brexit",2016-06-23,"élection","Les électeurs du Royaume-Uni votent par référendum pour quitter l'Union européenne.",https://en.wikipedia.org/wiki/2016_United_Kingdom_European_Union_membership_referendum
+trump_first_election,"1re élection de Donald Trump",2016-11-08,"élection","Donald Trump est élu président des États-Unis pour la première fois.",https://en.wikipedia.org/wiki/2016_United_States_presidential_election
+covid_pandemic_declaration,"Pandémie de Covid déclarée par l'OMS",2020-03-11,"crise sanitaire","L'Organisation mondiale de la santé qualifie l'épidémie de Covid-19 de pandémie.",https://www.who.int/news-room/speeches/item/who-director-general-s-opening-remarks-at-the-media-briefing-on-covid-19---11-march-2020
+fall_of_kabul,"Chute de Kaboul",2021-08-15,"guerre","Les talibans prennent le contrôle de Kaboul, capitale de l'Afghanistan.",https://en.wikipedia.org/wiki/Fall_of_Kabul_(2021)
+ukraine_invasion,"Invasion de l'Ukraine",2022-02-24,"guerre","La Russie lance une invasion à grande échelle de l'Ukraine.",https://en.wikipedia.org/wiki/Russian_invasion_of_Ukraine
+october_7_attack,"Attaque du 7 octobre",2023-10-07,"guerre","Le Hamas mène une attaque contre Israël depuis la bande de Gaza.",https://en.wikipedia.org/wiki/October_7_attacks
+trump_second_election,"2e élection de Donald Trump",2024-11-05,"élection","Donald Trump est élu président des États-Unis pour un second mandat.",https://en.wikipedia.org/wiki/2024_United_States_presidential_election
+hormuz_strait_closure,"Fermeture du détroit d'Ormuz",2026-02-28,"choc pétrolier","Fermeture du détroit d'Ormuz, voie de passage majeure du pétrole exporté depuis le golfe Persique.",https://en.wikipedia.org/wiki/2026_Strait_of_Hormuz_campaign
