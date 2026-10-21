@@ -1,0 +1,54 @@
+version: 2
+
+models:
+  - name: mart_gold_daily
+    description: >-
+      Cours journalier de l'or (contrat _GC Boursorama, USD par once troy), une ligne par
+      jour coté, avec les événements géopolitiques de dim_events rattachés au jour de
+      cotation. Règle de rattachement : chaque événement dont la date est couverte par
+      l'historique de l'or (available_assets contient gold) est placé sur le dernier jour
+      coté de l'or à sa date ou avant. Un événement tombé un jour sans cotation (week-end,
+      jour férié) apparaît donc sur le jour coté précédent : date_evenement peut être
+      postérieure à quote_date. Plusieurs événements rattachés au même jour sont regroupés
+      sur une seule ligne. Les valeurs de l'or ne sont pas corrigées (drapeaux repris de
+      stg_gold__boursorama).
+    columns:
+      - name: quote_date
+        description: "Jour de cotation de l'or (clé)."
+        data_tests:
+          - unique
+          - not_null
+      - name: open_usd
+        description: "Cours d'ouverture, USD par once troy."
+      - name: high_usd
+        description: "Plus haut du jour, USD par once troy."
+      - name: low_usd
+        description: "Plus bas du jour, USD par once troy."
+      - name: price_usd
+        description: "Cours de clôture du jour, USD par once troy."
+        data_tests:
+          - not_null:
+              config:
+                severity: warn
+      - name: has_full_ohlc
+        description: "Repris de stg_gold__boursorama : vrai si l'OHLC est complet (pas une clôture seule)."
+      - name: is_ohlc_inconsistent
+        description: "Repris de stg_gold__boursorama : vrai si l'OHLC est incohérent (non corrigé)."
+      - name: nom_evenement
+        description: >-
+          Nom de l'événement rattaché à ce jour de cotation, vide (NULL) sinon. Plusieurs
+          événements rattachés au même jour sont séparés par « | », dans l'ordre de leur date.
+      - name: cours_evenement
+        description: >-
+          Cours de clôture de l'or (price_usd) les jours où un événement est rattaché, vide
+          (NULL) sinon. Sert à placer un point sur la courbe de l'or. Pour un événement tombé
+          un jour sans cotation, c'est le cours du dernier jour coté avant l'événement.
+      - name: date_evenement
+        description: >-
+          Date calendaire de l'événement rattaché (la plus ancienne s'il y en a plusieurs),
+          NULL sinon. Peut être postérieure à quote_date quand l'événement tombe un jour
+          sans cotation.
+      - name: nb_evenements
+        description: "Nombre d'événements rattachés à ce jour (0 sinon, jamais NULL)."
+        data_tests:
+          - not_null
