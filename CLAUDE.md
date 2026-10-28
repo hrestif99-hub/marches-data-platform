@@ -73,8 +73,8 @@ collecte unique).
 - **Fraîcheur, deux contrôles** : `ingested_at` (la collecte a-t-elle tourné ? détecte une
   panne du pipeline) **et** `max(quote_date)` en staging (la source publie-t-elle encore ?
   détecte une donnée périmée, que la fenêtre glissante masquerait sinon).
-- **Stage** : la définition de `MARCHES.RAW.GCS_RAW_STAGE`, créé à la main, doit être
-  relevée (`DESC STAGE`) et versionnée dans `snowflake/`.
+- **Stage** : la définition de `MARCHES.RAW.GCS_RAW_STAGE`, créé à la main, est
+  versionnée dans `snowflake/03_stage.sql` (relevée par `DESC STAGE` le 2026-10-28).
 
 ## Décisions en attente
 - **Bitcoin : écrire `open_time_utc` dans RAW.** Aujourd'hui le loader lit l'heure
