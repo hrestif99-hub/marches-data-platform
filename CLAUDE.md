@@ -10,13 +10,14 @@ Projet de data engineering : collecter, stocker et transformer les cours de l'**
 ## Architecture
 ```
 Sources (scraping or + APIs)
-   → Cloud Functions (GCP) déclenchées par Cloud Scheduler
+   → Cloud Functions (GCP) déclenchées par Airflow (appel HTTP authentifié)
    → Cloud Storage (GCS) : fichiers bruts
    → Snowflake (stage externe + COPY INTO)
        RAW      : données brutes, telles que reçues
        STAGING  : nettoyées, typées, dédoublonnées (dbt)
        MARTS    : tables prêtes pour l'analyse (dbt)
-   → Airflow orchestre GCS → Snowflake → dbt → tests
+   → Airflow orchestre tout : Cloud Function → Snowflake → dbt → tests
+     (pas de Cloud Scheduler : un seul orchestrateur)
 CI/CD : GitHub Actions
 ```
 
@@ -47,16 +48,35 @@ Python 3.13, Snowflake, dbt, Airflow, GCP (GCS, Cloud Functions, Cloud Scheduler
   contrairement à l'or, au pétrole et à l'EUR/USD (jours ouvrés seulement). En tenir compte
   pour les contrôles de trous de dates et pour les jointures entre actifs.
 
+## Flux quotidien (décisions validées)
+Modèle défini pour l'EUR/USD, à reprendre pour le pétrole puis le bitcoin (l'or reste en
+collecte unique).
+- **Orchestration** : Airflow seul (local, Docker) appelle la Cloud Function, lance le
+  `COPY INTO` puis `dbt build`. Pas de Cloud Scheduler.
+- **Fenêtre glissante** : chaque collecte demande les **14 derniers jours** à la source
+  (pas tout l'historique, pas seulement la veille). Elle rattrape week-ends, jours fériés,
+  collectes manquées et corrections. Les jours en double entre fichiers sont dédoublonnés
+  en STAGING (dernière collecte gardée).
+- **Horaire** : EUR/USD collecté vers **17 h 30 heure de Paris**, jours ouvrés (la BCE
+  publie vers 16 h).
+- **Noms de fichiers distincts** : la collecte quotidienne écrit
+  `<actif>_<source>_daily_<D>.jsonl` (ex. `eurusd_ecb_daily_2026-10-28.jsonl`), l'historique
+  garde `<actif>_<source>_<D>.jsonl`. Un run quotidien ne réécrit donc jamais un fichier
+  d'historique, même à la même `ingestion_date`.
+- **Idempotence (relance le même jour)** : le fichier GCS quotidien du jour, au nom fixe, est
+  **réécrit** ; côté Snowflake, dans une transaction : `DELETE` des lignes RAW venant de **ce
+  fichier précis** (`WHERE file_name = '<chemin du fichier du jour>'`, jamais toute
+  l'`ingestion_date`), puis `COPY INTO ... FILES = ('<chemin du fichier du jour>') FORCE = TRUE`.
+  `FORCE` n'est permis que limité à ce seul fichier : sur tout le préfixe, il rechargerait
+  tous les fichiers et dupliquerait RAW. Toujours une seule copie de chaque fichier en RAW,
+  quel que soit le nombre de relances.
+- **Fraîcheur, deux contrôles** : `ingested_at` (la collecte a-t-elle tourné ? détecte une
+  panne du pipeline) **et** `max(quote_date)` en staging (la source publie-t-elle encore ?
+  détecte une donnée périmée, que la fenêtre glissante masquerait sinon).
+- **Stage** : la définition de `MARCHES.RAW.GCS_RAW_STAGE`, créé à la main, doit être
+  relevée (`DESC STAGE`) et versionnée dans `snowflake/`.
+
 ## Décisions en attente
-- **Fraîcheur des sources dbt : collecte ou cotation ?** Les tests de fraîcheur
-  (`dbt/models/staging/_sources.yml`) mesurent `ingested_at`, la date de la **collecte**,
-  alors que leurs seuils sont calculés sur le rythme de **publication** des sources
-  (EIA hebdomadaire, jours ouvrés BCE, 7j/7 pour le bitcoin). C'est cohérent seulement si la
-  collecte quotidienne n'écrit rien quand il n'y a pas de nouvelle cotation. Si elle réécrit
-  une fenêtre glissante, `ingested_at` avance chaque jour et le test ne détecte plus qu'une
-  panne du pipeline, jamais une donnée périmée. À trancher quand la collecte quotidienne
-  sera planifiée (Cloud Scheduler) : soit « pas d'écriture sans nouveauté », soit un
-  contrôle de fraîcheur sur `quote_date` en plus.
 - **Bitcoin : écrire `open_time_utc` dans RAW.** Aujourd'hui le loader lit l'heure
   d'ouverture des bougies Binance (`open_time`), vérifie qu'elle tombe à minuit UTC
   (sinon `RawFormatError`), mais n'écrit que `quote_date`. `stg_bitcoin__binance_vision`

@@ -74,7 +74,9 @@ COMMENT = 'RAW - taux de change EUR/USD (API BCE). Une ligne JSONL par cotation,
 -- Idempotence : Snowflake garde pendant 64 jours les métadonnées de chargement de
 -- chaque table (nom de fichier + ETag). Un fichier déjà chargé est ignoré
 -- ("LOAD_SKIPPED"), donc relancer ces COPY ne crée pas de doublon.
--- Ne PAS utiliser FORCE = TRUE : il recharge tous les fichiers et duplique les lignes.
+-- Ne PAS utiliser FORCE = TRUE sur ces COPY : il recharge tous les fichiers et duplique les lignes.
+-- Seule exception (flux quotidien, cf. CLAUDE.md) : FORCE limité à UN fichier via FILES = (...),
+-- juste après un DELETE des lignes de ce même fichier, dans la même transaction.
 -- Au-delà de 64 jours, le dédoublonnage se fait en STAGING (file_name + file_row_number).
 --
 -- PATTERN : dans une chaîne Snowflake, '\\d' devient \d pour le moteur regex.
