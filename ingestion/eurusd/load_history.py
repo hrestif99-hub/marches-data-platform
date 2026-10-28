@@ -391,13 +391,22 @@ def gcs_object_paths(ingestion_date: str, mode: str) -> tuple[str, str]:
     return f"{prefix}/{jsonl}", f"{prefix}/{raw}"
 
 
+def to_jsonl_text(records: list[dict[str, Any]]) -> str:
+    """SEUL endroit où est défini le format JSONL : une ligne JSON par enregistrement.
+
+    UTF-8 non échappé (ensure_ascii=False), séparateur "\\n" (y compris après la dernière
+    ligne). Partagé par write_jsonl (local) et la Cloud Function (GCS) : mêmes octets.
+    """
+    return "".join(json.dumps(rec, ensure_ascii=False) + "\n" for rec in records)
+
+
 def write_jsonl(records: list[dict[str, Any]], path: Path) -> None:
     """Écrit via un fichier temporaire puis remplace : relance = même fichier écrasé."""
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".jsonl.tmp")
+    # newline="\n" : aucune traduction en \r\n sous Windows, octets identiques à GCS.
     with tmp.open("w", encoding="utf-8", newline="\n") as f:
-        for rec in records:
-            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+        f.write(to_jsonl_text(records))
     tmp.replace(path)
 
 

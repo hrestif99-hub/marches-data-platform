@@ -1,0 +1,6 @@
+# Dépendances de la Cloud Function eurusd-daily (copié à la racine du paquet par build.sh).
+# Versions exactes ; functions-framework et google-cloud-storage sont aussi dans
+# requirements-dev.txt (mêmes versions) pour les tests et le serveur local.
+functions-framework==3.10.2
+google-cloud-storage==3.17.1
+requests==2.34.2

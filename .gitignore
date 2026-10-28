@@ -14,3 +14,6 @@ ingestion/oil/output/
 
 # Fichiers bruts Binance Vision (BTCUSDT), jamais commités
 ingestion/bitcoin/output/
+
+# Paquet de déploiement de la Cloud Function EUR/USD, généré par build.sh
+ingestion/eurusd/function/build/

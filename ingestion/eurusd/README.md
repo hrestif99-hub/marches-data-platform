@@ -109,7 +109,10 @@ Les noms locaux et les chemins GCS sont tous calculés par une seule fonction,
   un `Collection` (réponse brute en texte, enregistrements, noms de fichiers, fenêtre).
 - `write_local(collection, output_dir)` : écriture locale atomique (temporaire puis remplacement).
 - `run(...)` = `collect` puis `write_local` ; `main(argv)` = CLI.
-- La Cloud Function réutilisera `collect` puis `Collection.gcs_paths` (noms issus de `file_names`).
+- `to_jsonl_text(records)` : seul endroit où est défini le format JSONL, utilisé par
+  `write_jsonl` et par la Cloud Function (mêmes octets en local et dans GCS).
+- La Cloud Function (`function/`, voir son README) réutilise `collect` puis
+  `Collection.gcs_paths` (noms issus de `file_names`).
 
 ## Format SDMX-JSON
 
@@ -142,4 +145,4 @@ Puis les contrôles propres au mode (voir le tableau « Deux modes »).
   ou contrôle échoué (JSON invalide, structure SDMX, fenêtre vide, donnée périmée),
   4 argument invalide (mode inconnu, `--date` invalide ou future).
 
-Pas d'upload GCS dans ce script.
+Pas d'upload GCS dans ce script : c'est le rôle de la Cloud Function, `function/`.

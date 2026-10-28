@@ -29,7 +29,7 @@ CI/CD : GitHub Actions
 - `.claude/agents/` : sous-agents Claude Code
 
 ## Stack
-Python 3.13, Snowflake, dbt, Airflow, GCP (GCS, Cloud Functions, Cloud Scheduler, IAM), GitHub Actions, Docker.
+Python 3.13, Snowflake, dbt, Airflow, GCP (GCS, Cloud Functions, IAM), GitHub Actions, Docker.
 
 ## Conventions
 - Code et commentaires : noms en anglais, explications en français.

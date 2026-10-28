@@ -4,3 +4,7 @@ pytest==9.1.1
 # (dbt-core>=1.10.0rc0) autorise pip à installer une version bêta.
 dbt-core==1.12.6
 dbt-snowflake==1.12.3
+# Cloud Function EUR/USD (ingestion/eurusd/function/) : mêmes versions que son
+# requirements.txt, pour les tests et le serveur local functions-framework.
+functions-framework==3.10.2
+google-cloud-storage==3.17.1
